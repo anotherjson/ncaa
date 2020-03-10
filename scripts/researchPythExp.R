@@ -50,7 +50,7 @@ calc_pyth <- function(points_for, points_against, exponent) {
 }
 
 calc_pyth_exp <- function(points_for, points_against, games, exponent) {
-  temp <- (((points_for + points_against) / games)^exponent)
+  temp <- (((points_for + points_against) / games) ^ exponent)
 
   return(temp)
 }
@@ -65,14 +65,12 @@ outputs_dir <- file.path(working_dir, "outputs")
 scripts_dir <- file.path(working_dir, "scripts")
 
 # Data ----
-data_list_sub <- dir(file.path(data_dir, "MDataFiles_Stage1"))
-data_list <- dir(data_dir)
+data_list <- dir(file.path(data_dir, "MDataFiles_Stage1"))
 data_reg_compact <- read_csv(file.path(
   data_dir,
   "MDataFiles_Stage1/",
   "MRegularSeasonCompactResults.csv"
 ))
-data_error <- readRDS(file.path(data_dir, "errorList.RData"))
 
 # Research ----
 sample_data <- sample(10:1000, 50, replace = TRUE)
@@ -83,10 +81,6 @@ error <- actual - prediction
 test <- rmse(error)
 
 # Cleaning ----
-exponent <- data_error %>%
-  filter(rmse == min(rmse)) %>%
-  select(exponent)
-
 df_reg_compact_won <- data_reg_compact %>%
   rename(TeamId = WTeamID) %>%
   rename_at(vars(matches("W")), ~ gsub("^(W)", "Team", .)) %>%
@@ -105,45 +99,37 @@ df_reg_compact_loss <- data_reg_compact %>%
 
 df_reg_compact <- df_reg_compact_won %>%
   rbind(df_reg_compact_loss) %>%
-  mutate(PythExponent = calc_pyth_exp(
-    TeamScore,
-    OppScore,
-    1,
-    exponent$exponent
-  ), ScoreDiff = TeamScore - OppScore) %>%
-  mutate(
-    PythExp = calc_pyth(TeamScore, OppScore, PythExponent),
-    Won = ScoreDiff > 0,
-    Tie = ScoreDiff == 0,
-    Loss = ScoreDiff < 0,
-    Result = if_else(ScoreDiff > 0, 1, if_else(ScoreDiff == 0, .5, 0))
-  )
+  mutate(Ratio = OppScore / TeamScore)
 
-df_reg_summary <- df_reg_compact %>%
-  group_by(Season, TeamId) %>%
-  summarise(
-    Games = length(DayNum),
-    TotalTeamScore = sum(TeamScore),
-    TotalOppScore = sum(OppScore),
-    MeanPythExp = mean(PythExp),
-    TotalResults = mean(Result),
-    TotalWon = sum(Won)
-  ) %>%
-  mutate(WinPercent = TotalWon / Games,
-         PythExp2 = calc_pyth(TotalTeamScore, TotalOppScore, 2),
-         PythExp13 = calc_pyth(TotalTeamScore, TotalOppScore, 13),
-         PythExpExp = calc_pyth(TotalTeamScore,
-                                TotalOppScore,
-                                calc_pyth_exp(TotalTeamScore,
-                                              TotalOppScore,
-                                              Games,
-                                              exponent$exponent))) %>%
-  mutate(Error = WinPercent - MeanPythExp,
-         Error2 = WinPercent - PythExp2,
-         Error13 = WinPercent - PythExp13,
-         ErrorExp = WinPercent - PythExpExp)
+# Pyth expectations
+exp_calc_pyth_start <- .001
+exp_calc_pyth_end <- 1
+error_list = tibble()
 
-print(rmse(df_reg_summary$Error))
-print(rmse(df_reg_summary$Error2))
-print(rmse(df_reg_summary$Error13))
-print(rmse(df_reg_summary$ErrorExp))
+exp_calc_pyth_seq <- seq(exp_calc_pyth_start, exp_calc_pyth_end, by = 0.001)
+
+for (exponent in exp_calc_pyth_seq) {
+  df_reg_pyth <- df_reg_compact %>%
+    select(Season, TeamId, TeamScore, OppScore)
+
+  df_team_avg <- df_reg_pyth %>%
+    mutate(exponent = calc_pyth_exp(TeamScore, OppScore, 1, exponent)) %>%
+    group_by(Season, TeamId) %>%
+    summarise(ExpAvg = mean(exponent))
+
+  df_reg_pyth <- df_reg_pyth %>%
+    left_join(df_team_avg, by = c("Season", "TeamId"))
+
+  df_reg_pyth <-  df_reg_pyth %>%
+    mutate(PythExp = calc_pyth(TeamScore, OppScore, ExpAvg),
+           Diff = TeamScore - OppScore) %>%
+    mutate(Result = if_else(Diff > 0, 1, if_else(Diff == 0, .5, 0)),
+           Error = Result - PythExp)
+
+  rmse_output <- df_reg_pyth %>%
+    ungroup() %>%
+    summarise(RMSE = rmse(Error))
+
+  error_list <- error_list %>%
+    rbind(tibble("exponent" = exponent, "rmse" = rmse_output$RMSE))
+}
