@@ -74,13 +74,6 @@ data_reg_compact <- read_csv(file.path(
 ))
 data_error <- readRDS(file.path(data_dir, "errorList.RData"))
 
-# Research ----
-sample_data <- sample(10:1000, 50, replace = TRUE)
-prediction <- sample_data / 10
-actual <- sample(1:100, 50, replace = TRUE)
-
-error <- actual - prediction
-test <- rmse(error)
 
 # Cleaning ----
 exponent <- data_error %>%
