@@ -79,9 +79,11 @@ data_exponent_game <- readRDS(file.path(data_dir, "rmseListGame.RData"))
 data_exponent_season <- readRDS(file.path(data_dir, "rmseListSeason.RData"))
 
 # Cleaning and modeling ----
-exponent_game <- data_exponent_game %>%
-  filter(RMSEOutput == min(RMSEOutput)) %>%
-  summarise(Exponent = min(Exponent))
+exponent_game <- tibble(Exponent = 2.17)
+
+  # data_exponent_game %>%
+  # filter(RMSEOutput == min(RMSEOutput)) %>%
+  # summarise(Exponent = min(Exponent))
 
 exponent_season <- data_exponent_season %>%
   filter(RMSEOutput == min(RMSEOutput)) %>%
