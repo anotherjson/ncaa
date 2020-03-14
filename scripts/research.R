@@ -3,6 +3,8 @@
 ##  testthat
 ##  lubridate
 ##  tidyverse
+time_start <- Sys.time()
+print("Starting script")
 
 # Functions ----
 import_packages <- function() {
@@ -44,7 +46,7 @@ calc_pyth <- function(points_for, points_against, exponent) {
     is.numeric(points_against) | is.integer(points_against)
   )
 
-  temp <- 1 / ((1 + (points_against / points_for))^exponent)
+  temp <- 1 / (1 + ((points_against / points_for)^exponent))
 
   return(temp)
 }
@@ -72,20 +74,25 @@ data_reg_compact <- read_csv(file.path(
   "MDataFiles_Stage1/",
   "MRegularSeasonCompactResults.csv"
 ))
-data_error <- readRDS(file.path(data_dir, "errorList.RData"))
 
+data_exponent_game <- readRDS(file.path(data_dir, "rmseListGame.RData"))
+data_exponent_season <- readRDS(file.path(data_dir, "rmseListSeason.RData"))
 
-# Cleaning ----
-exponent <- data_error %>%
-  filter(rmse == min(rmse)) %>%
-  select(exponent)
+# Cleaning and modeling ----
+exponent_game <- data_exponent_game %>%
+  filter(RMSEOutput == min(RMSEOutput)) %>%
+  summarise(Exponent = min(Exponent))
+
+exponent_season <- data_exponent_season %>%
+  filter(RMSEOutput == min(RMSEOutput)) %>%
+  summarise(Exponent = min(Exponent))
 
 df_reg_compact_won <- data_reg_compact %>%
   rename(TeamId = WTeamID) %>%
   rename_at(vars(matches("W")), ~ gsub("^(W)", "Team", .)) %>%
   rename_at(vars(matches("L")), ~ gsub("^(L)", "Opp", .)) %>%
   mutate(OppLoc = if_else(TeamLoc == "H", "A",
-    if_else(TeamLoc == "A", "H", "N")
+                          if_else(TeamLoc == "A", "H", "N")
   ))
 
 df_reg_compact_loss <- data_reg_compact %>%
@@ -93,7 +100,7 @@ df_reg_compact_loss <- data_reg_compact %>%
   rename_at(vars(matches("L")), ~ gsub("^(L)", "Team", .)) %>%
   rename_at(vars(matches("W")), ~ gsub("^(W)", "Opp", .)) %>%
   mutate(TeamLoc = if_else(OppLoc == "H", "A",
-    if_else(OppLoc == "A", "H", "N")
+                           if_else(OppLoc == "A", "H", "N")
   ))
 
 df_reg_compact <- df_reg_compact_won %>%
@@ -102,10 +109,10 @@ df_reg_compact <- df_reg_compact_won %>%
     TeamScore,
     OppScore,
     1,
-    exponent$exponent
+    exponent_game$Exponent
   ), ScoreDiff = TeamScore - OppScore) %>%
   mutate(
-    PythExp = calc_pyth(TeamScore, OppScore, PythExponent),
+    PythExpGame = calc_pyth(TeamScore, OppScore, PythExponent),
     Won = ScoreDiff > 0,
     Tie = ScoreDiff == 0,
     Loss = ScoreDiff < 0,
@@ -118,25 +125,47 @@ df_reg_summary <- df_reg_compact %>%
     Games = length(DayNum),
     TotalTeamScore = sum(TeamScore),
     TotalOppScore = sum(OppScore),
-    MeanPythExp = mean(PythExp),
+    PythExpGame = mean(PythExpGame),
     TotalResults = mean(Result),
     TotalWon = sum(Won)
   ) %>%
+  mutate(PythExponent = calc_pyth_exp(TotalTeamScore,
+                                 TotalOppScore,
+                                 Games,
+                                 exponent_season$Exponent)) %>%
   mutate(WinPercent = TotalWon / Games,
          PythExp2 = calc_pyth(TotalTeamScore, TotalOppScore, 2),
          PythExp13 = calc_pyth(TotalTeamScore, TotalOppScore, 13),
-         PythExpExp = calc_pyth(TotalTeamScore,
-                                TotalOppScore,
-                                calc_pyth_exp(TotalTeamScore,
-                                              TotalOppScore,
-                                              Games,
-                                              exponent$exponent))) %>%
-  mutate(Error = WinPercent - MeanPythExp,
-         Error2 = WinPercent - PythExp2,
-         Error13 = WinPercent - PythExp13,
-         ErrorExp = WinPercent - PythExpExp)
+         PythExpSeason = calc_pyth(TotalTeamScore,
+                                   TotalOppScore,
+                                   PythExponent)) %>%
+  mutate(PythExpGameGames = PythExpGame * Games,
+         PythExp2Games = PythExp2 * Games,
+         PythExp13Games = PythExp13 * Games,
+         PythExpSeasonGames = PythExpSeason * Games) %>%
+  mutate(ErrorGame = TotalWon - PythExpGameGames,
+         Error2 = TotalWon - PythExp2Games,
+         Error13 = TotalWon - PythExp13Games,
+         ErrorSeason = TotalWon - PythExpSeasonGames)
 
-print(rmse(df_reg_summary$Error))
-print(rmse(df_reg_summary$Error2))
-print(rmse(df_reg_summary$Error13))
-print(rmse(df_reg_summary$ErrorExp))
+# Errors ----
+print(paste("Error Game:", rmse(df_reg_summary$ErrorGame)))
+print(paste("Error 2:", rmse(df_reg_summary$Error2)))
+print(paste("Error 13:", rmse(df_reg_summary$Error13)))
+print(paste("Error Season:", rmse(df_reg_summary$ErrorSeason)))
+
+# Correlations ----
+print(paste("Cor Game:", cor(df_reg_summary$TotalWon,
+                             df_reg_summary$PythExpGameGames)))
+print(paste("Cor 2:", cor(df_reg_summary$TotalWon,
+                          df_reg_summary$PythExp2Games)))
+print(paste("Cor 13:", cor(df_reg_summary$TotalWon,
+                           df_reg_summary$PythExp13Games)))
+print(paste("Cor Season:", cor(df_reg_summary$TotalWon,
+                               df_reg_summary$PythExpSeasonGames)))
+
+# Standard deviation ----
+print(paste("SD Game:", sd(df_reg_summary$ErrorGame)))
+print(paste("SD 2:", sd(df_reg_summary$Error2)))
+print(paste("SD 13:", sd(df_reg_summary$Error13)))
+print(paste("SD Season", sd(df_reg_summary$ErrorSeason)))

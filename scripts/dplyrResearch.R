@@ -102,94 +102,18 @@ df_reg_compact <- df_reg_compact_won %>%
     Result = if_else(ScoreDiff > 0, 1, if_else(ScoreDiff == 0, .5, 0))
   )
 
-df_reg_summary <- df_reg_compact %>%
-  group_by(Season, TeamId) %>%
-  summarise(
-    Games = length(DayNum),
-    TotalTeamScore = sum(TeamScore),
-    TotalOppScore = sum(OppScore),
-    TotalResults = mean(Result),
-    TotalWon = sum(Won)
-  )
+# Grab needed columns and make additional columns ----
+df_simple <- df_reg_compact %>%
+  select(Season, DayNum, TeamId, TeamScore, OppScore, ScoreDiff, Won)
 
-# Calculate best exponent for use in pyth exponent per game measurement ----
 exp_calc_start <- .001
-exp_calc_end <- 10
-rmse_list_game <- tibble()
-
+exp_calc_end <- .002
 exp_calc_seq <- seq(exp_calc_start, exp_calc_end, by = 0.001)
 
-pb <- progress::progress_bar$new(total = length(exp_calc_seq))
 for (e in exp_calc_seq) {
-  pb$tick()
-  df_pyth <- df_reg_compact %>%
-    select(Season, DayNum, TeamId, TeamScore, OppScore, ScoreDiff, Won) %>%
-    mutate(Exponent = calc_pyth_exp(TeamScore, OppScore, 1, e))
-
-  df_pyth_avg <- df_pyth %>%
-    group_by(Season, TeamId) %>%
-    summarise(ExpAvg = mean(Exponent))
-
-  df_pyth <- df_pyth %>%
-    left_join(df_pyth_avg, by = c("Season", "TeamId")) %>%
-    mutate(PythExpGame = calc_pyth(TeamScore, OppScore, ExpAvg)) %>%
-    mutate(Error = Won - PythExpGame)
-
-  rmse_output_game <- df_pyth %>%
-    ungroup() %>%
-    summarise(RMSEOutput = rmse(Error))
-
-  rmse_list_game <- rmse_list_game %>%
-    rbind(tibble("Exponent" = e, "RMSEOutput" = rmse_output_game$RMSEOutput))
+  df_simple <-
 }
 
-# Find exponent where rmse is min ----
-rmse_game_min <- rmse_list_game %>%
-  filter(RMSEOutput == min(RMSEOutput)) %>%
-  select(Exponent)
 
-# Calculate best exponent for use in pyth exponent per season measurement ----
-exp_calc_start <- .001
-exp_calc_end <- 10
-rmse_list_season <- tibble()
 
-exp_calc_seq <- seq(exp_calc_start, exp_calc_end, by = 0.001)
-pb <- progress::progress_bar$new(total = length(exp_calc_seq))
-for (e in exp_calc_seq) {
-  pb$tick()
-  df_pyth_season <- df_reg_summary %>%
-    select(Season, TeamId, TotalTeamScore, TotalOppScore, Games, TotalWon) %>%
-    mutate(Exponent = calc_pyth_exp(TotalTeamScore, TotalOppScore, Games, e))
 
-  df_pyth_avg <- df_pyth_season %>%
-    group_by(Season, TeamId) %>%
-    summarise(ExpAvg = mean(Exponent))
-
-  df_pyth_season <- df_pyth_season %>%
-    left_join(df_pyth_avg, by = c("Season", "TeamId")) %>%
-    mutate(PythExp = calc_pyth(TotalTeamScore, TotalOppScore, ExpAvg)) %>%
-    mutate(PythGames = PythExp * Games) %>%
-    mutate(Error = TotalWon - PythGames)
-
-  rmse_output_season <- df_pyth_season %>%
-    ungroup() %>%
-    summarise(RMSEOutput = rmse(Error))
-
-  rmse_list_season <- rmse_list_season %>%
-    rbind(tibble(
-      "Exponent" = e,
-      "RMSEOutput" = rmse_output_season$RMSEOutput
-    ))
-}
-
-rmse_season_min <- rmse_list_season %>%
-  filter(RMSEOutput == min(RMSEOutput))
-
-# Write data ----
-saveRDS(rmse_list_game, file.path(data_dir, "rmseListGame.RData"))
-saveRDS(rmse_list_season, file.path(data_dir, "rmseListSeason.RData"))
-
-# End ----
-time_end <- Sys.time()
-time_diff <- time_end - time_start
-print(time_diff)
