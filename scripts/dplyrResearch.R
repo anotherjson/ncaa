@@ -69,11 +69,16 @@ scripts_dir <- file.path(working_dir, "scripts")
 # Data ----
 data_list_sub <- dir(file.path(data_dir, "MDataFiles_Stage1"))
 data_list <- dir(data_dir)
-data_reg_compact <- read_csv(file.path(
-  data_dir,
-  "MDataFiles_Stage1/",
-  "MRegularSeasonCompactResults.csv"
+data_reg_compact <- read_csv(
+  file.path(
+    data_dir,
+    "MDataFiles_Stage1/",
+    "MRegularSeasonCompactResults.csv"
 ))
+data_reg_detail <- read_csv(
+  file.path(data_dir,
+            "MDataFiles_Stage1/",
+            "MRegularSeasonDetailedResults.csv"))
 
 # Cleaning ----
 df_reg_compact_won <- data_reg_compact %>%
@@ -102,18 +107,34 @@ df_reg_compact <- df_reg_compact_won %>%
     Result = if_else(ScoreDiff > 0, 1, if_else(ScoreDiff == 0, .5, 0))
   )
 
-# Grab needed columns and make additional columns ----
-df_simple <- df_reg_compact %>%
-  select(Season, DayNum, TeamId, TeamScore, OppScore, ScoreDiff, Won)
+df_reg_summary <- df_reg_compact %>%
+  group_by(Season, TeamId) %>%
+  summarise(
+    Games = length(DayNum),
+    TotalTeamScore = sum(TeamScore),
+    TotalOppScore = sum(OppScore),
+    TotalResults = mean(Result),
+    TotalWon = sum(Won),
+    MedianSpread = median(TeamScore - OppScore)
+  ) %>%
+  mutate(WinPercent = TotalWon / Games) %>%
+  mutate(WinPercentRound = round(WinPercent, 2))
 
-exp_calc_start <- .001
-exp_calc_end <- .002
-exp_calc_seq <- seq(exp_calc_start, exp_calc_end, by = 0.001)
+# Create spread chart by win percent ----
+df_win_spread <- df_reg_summary %>%
+  group_by(WinPercentRound) %>%
+  summarise(Spread = median(MedianSpread)) %>%
+  rename(WinPercent = WinPercentRound) %>%
+  mutate(WinPercent = as.integer(WinPercent * 100))
 
-for (e in exp_calc_seq) {
-  df_simple <-
-}
+df_win_spread <- tibble(WinPercent = seq(0, 100, by = 1)) %>%
+  left_join(df_win_spread) %>%
+  fill(Spread, .direction = c("down"))
 
+# Write data ----
+saveRDS(df_win_spread, file.path(data_dir, "winSpread.RData"))
 
-
-
+# End ----
+time_end <- Sys.time()
+time_diff <- time_end - time_start
+print(time_diff)

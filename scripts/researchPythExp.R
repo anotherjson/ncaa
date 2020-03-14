@@ -69,11 +69,14 @@ scripts_dir <- file.path(working_dir, "scripts")
 # Data ----
 data_list_sub <- dir(file.path(data_dir, "MDataFiles_Stage1"))
 data_list <- dir(data_dir)
-data_reg_compact <- read_csv(file.path(
-  data_dir,
-  "MDataFiles_Stage1/",
-  "MRegularSeasonCompactResults.csv"
-))
+data_reg_compact <- read_csv(
+  file.path(
+    data_dir,
+    "MDataFiles_Stage1/",
+    "MRegularSeasonCompactResults.csv"
+  )
+)
+data_win_spread <- readRDS(file.path(data_dir, "winSpread.RData"))
 
 # Cleaning ----
 df_reg_compact_won <- data_reg_compact %>%
@@ -81,7 +84,7 @@ df_reg_compact_won <- data_reg_compact %>%
   rename_at(vars(matches("W")), ~ gsub("^(W)", "Team", .)) %>%
   rename_at(vars(matches("L")), ~ gsub("^(L)", "Opp", .)) %>%
   mutate(OppLoc = if_else(TeamLoc == "H", "A",
-                          if_else(TeamLoc == "A", "H", "N")
+    if_else(TeamLoc == "A", "H", "N")
   ))
 
 df_reg_compact_loss <- data_reg_compact %>%
@@ -89,7 +92,7 @@ df_reg_compact_loss <- data_reg_compact %>%
   rename_at(vars(matches("L")), ~ gsub("^(L)", "Team", .)) %>%
   rename_at(vars(matches("W")), ~ gsub("^(W)", "Opp", .)) %>%
   mutate(TeamLoc = if_else(OppLoc == "H", "A",
-                           if_else(OppLoc == "A", "H", "N")
+    if_else(OppLoc == "A", "H", "N")
   ))
 
 df_reg_compact <- df_reg_compact_won %>%
@@ -114,7 +117,7 @@ df_reg_summary <- df_reg_compact %>%
 
 # Calculate best exponent for use in pyth exponent per game measurement ----
 exp_calc_start <- .001
-exp_calc_end <- 10
+exp_calc_end <- 1
 rmse_list_game <- tibble()
 
 exp_calc_seq <- seq(exp_calc_start, exp_calc_end, by = 0.001)
@@ -133,7 +136,9 @@ for (e in exp_calc_seq) {
   df_pyth <- df_pyth %>%
     left_join(df_pyth_avg, by = c("Season", "TeamId")) %>%
     mutate(PythExpGame = calc_pyth(TeamScore, OppScore, ExpAvg)) %>%
-    mutate(Error = Won - PythExpGame)
+    mutate(PythExpPercent = as.integer(round(PythExpGame, 2) * 100)) %>%
+    left_join(data_win_spread, by = c("PythExpPercent" = "WinPercent")) %>%
+    mutate(Error = ScoreDiff - Spread)
 
   rmse_output_game <- df_pyth %>%
     ungroup() %>%
@@ -150,7 +155,7 @@ rmse_game_min <- rmse_list_game %>%
 
 # Calculate best exponent for use in pyth exponent per season measurement ----
 exp_calc_start <- .001
-exp_calc_end <- 10
+exp_calc_end <- 1
 rmse_list_season <- tibble()
 
 exp_calc_seq <- seq(exp_calc_start, exp_calc_end, by = 0.001)
