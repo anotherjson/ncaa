@@ -279,6 +279,7 @@ df_reg_summary <- df_reg_compact %>%
   )
 
 # Calculate best exponent for use in pyth exponent per game measurement ----
+print("finding game exponent")
 rmse_list_game <- find_rmse(df_reg_compact,
   exp_calc_start,
   exp_calc_end,
@@ -288,11 +289,12 @@ rmse_list_game <- find_rmse(df_reg_compact,
   df_spread = data_win_spread
 )
 
-# Find exponent where rmse is min ----
+# Find game exponent where rmse is min ----
 rmse_game_min <- rmse_list_game %>%
   filter(RMSEOutput == min(RMSEOutput))
 
 # Calculate best exponent for use in pyth exponent per season measurement ----
+print("finding season exponent")
 rmse_list_season <- find_rmse(
   df_reg_summary,
   exp_calc_start,
@@ -301,7 +303,7 @@ rmse_list_season <- find_rmse(
   exp_calc_place
 )
 
-# Find exponent where rmse is min ----
+# Find season exponent where rmse is min ----
 rmse_season_min <- rmse_list_season %>%
   filter(RMSEOutput == min(RMSEOutput))
 
