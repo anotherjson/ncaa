@@ -36,9 +36,7 @@ rmse <- function(error) {
   #   error: the delta between actual and predicted values
   # Return:
   #   value as numeric
-  stopifnot(is.integer(error) | is.numeric(error))
-
-  temp <- as.numeric(sqrt(mean(error^2)))
+  temp <- sqrt(mean(as.numeric(error)^2))
 
   return(temp)
 }
@@ -287,8 +285,6 @@ outputs_dir <- file.path(working_dir, "outputs")
 scripts_dir <- file.path(working_dir, "scripts")
 
 # Data ----
-data_list_sub <- dir(file.path(data_dir, "MDataFiles_Stage1"))
-data_list <- dir(data_dir)
 data_reg_compact <- read_csv(
   file.path(
     data_dir,
