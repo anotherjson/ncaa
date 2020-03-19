@@ -79,7 +79,9 @@ data_exponent_game <- readRDS(file.path(data_dir, "rmseListGame.RData"))
 data_exponent_season <- readRDS(file.path(data_dir, "rmseListSeason.RData"))
 
 # Cleaning and modeling ----
-exponent_game <- tibble(Exponent = 2.17)
+exponent_game <- data_exponent_game %>%
+  filter(RMSEOutput == min(RMSEOutput)) %>%
+  summarise(Exponent = min(Exponent))
 
 exponent_season <- data_exponent_season %>%
   filter(RMSEOutput == min(RMSEOutput)) %>%
@@ -156,6 +158,7 @@ df_reg_summary <- df_reg_compact %>%
     ErrorSeason = TotalWon - PythExpSeasonGames
   )
 
+print(df_reg_compact %>% summary())
 # Errors ----
 print(paste("Error Game:", rmse(df_reg_summary$ErrorGame)))
 print(paste("Error 2:", rmse(df_reg_summary$Error2)))
