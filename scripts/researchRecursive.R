@@ -194,29 +194,35 @@ find_rmse_recursive <- function(df,
                                 season,
                                 df_spread) {
   if (number == number_end) {
-    df_recursive <- bind_df(df,
-                            df_recursive,
-                            number,
-                            number_place,
-                            season,
-                            df_spread)
+    df_recursive <- bind_df(
+      df,
+      df_recursive,
+      number,
+      number_place,
+      season,
+      df_spread
+    )
     return(df_recursive)
   } else {
-    df_recursive <- bind_df(df,
-                            df_recursive,
-                            number,
-                            number_place,
-                            season,
-                            df_spread)
+    df_recursive <- bind_df(
+      df,
+      df_recursive,
+      number,
+      number_place,
+      season,
+      df_spread
+    )
     number <- number + number_by
-    find_rmse_recursive(df,
-                        df_recursive,
-                        number,
-                        number_end,
-                        number_by,
-                        number_place,
-                        season,
-                        df_spread)
+    find_rmse_recursive(
+      df,
+      df_recursive,
+      number,
+      number_end,
+      number_by,
+      number_place,
+      season,
+      df_spread
+    )
   }
 }
 
