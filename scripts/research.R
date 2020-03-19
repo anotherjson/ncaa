@@ -6,11 +6,16 @@
 time_start <- Sys.time()
 print("Starting script")
 
+# Assumptions ----
+ncaa_typical_exponent <- 13.91
+
 # Functions ----
 import_packages <- function() {
   # Import packages required for research
   # Req:
-  #   none
+  #   testthat
+  #   lubridate
+  #   tidyverse
   # Arg:
   #   none
   # Return:
@@ -27,8 +32,12 @@ rmse <- function(error) {
   # Arg:
   #   error: the delta between actual and predicted values
   # Return:
-  #   value as numeric or int
-  as.numeric(sqrt(mean(error^2)))
+  #   value as numeric
+  stopifnot(is.integer(error) | is.numeric(error))
+
+  temp <- as.numeric(sqrt(mean(error^2)))
+
+  return(temp)
 }
 
 calc_pyth <- function(points_for, points_against, exponent) {
@@ -36,23 +45,41 @@ calc_pyth <- function(points_for, points_against, exponent) {
   # Req:
   #   none
   # Arg:
-  #   goals_for: the goals scored for the team predicted
-  #   goals_against: the goals scoard against the team predicted
+  #   points_for: the goals scored for the team predicted
+  #   points_against: the goals scoard against the team predicted
   #   exponent: ideal exponent based on individual sports research
   # Return:
   #   value as numeric
   stopifnot(
     is.numeric(points_for) | is.integer(points_for),
-    is.numeric(points_against) | is.integer(points_against)
+    is.numeric(points_against) | is.integer(points_against),
+    is.numeric(exponent) | is.integer(exponent)
   )
 
-  temp <- 1 / (1 + ((points_against / points_for)^exponent))
+  temp <- as.numeric(1 / (1 + ((points_against / points_for)^exponent)))
 
   return(temp)
 }
 
 calc_pyth_exp <- function(points_for, points_against, games, exponent) {
-  temp <- (((points_for + points_against) / games)^exponent)
+  # Calculates the exponent for pyth expectations
+  # Req:
+  #   none
+  # Arg:
+  #   points_for: the goals scored for the team predicted
+  #   points_against: the goals scoard against the team predicted
+  #   games: number of games played for range of games in points_for, against
+  #   exponent: ideal exponent based on individual sports research
+  # Return:
+  #   value as numeric
+  stopifnot(
+    is.numeric(points_for) | is.integer(points_for),
+    is.numeric(points_against) | is.integer(points_against),
+    is.numeric(games) | is.integer(games),
+    is.numeric(exponent) | is.integer(exponent)
+  )
+
+  temp <- as.numeric(((points_for + points_against) / games)^exponent)
 
   return(temp)
 }
@@ -137,8 +164,7 @@ df_reg_summary <- df_reg_compact %>%
   )) %>%
   mutate(
     WinPercent = TotalWon / Games,
-    PythExp2 = calc_pyth(TotalTeamScore, TotalOppScore, 2),
-    PythExp13 = calc_pyth(TotalTeamScore, TotalOppScore, 13),
+    PythExp13 = calc_pyth(TotalTeamScore, TotalOppScore, ncaa_typical_exponent),
     PythExpSeason = calc_pyth(
       TotalTeamScore,
       TotalOppScore,
@@ -147,21 +173,17 @@ df_reg_summary <- df_reg_compact %>%
   ) %>%
   mutate(
     PythExpGameGames = PythExpGame * Games,
-    PythExp2Games = PythExp2 * Games,
     PythExp13Games = PythExp13 * Games,
     PythExpSeasonGames = PythExpSeason * Games
   ) %>%
   mutate(
     ErrorGame = TotalWon - PythExpGameGames,
-    Error2 = TotalWon - PythExp2Games,
     Error13 = TotalWon - PythExp13Games,
     ErrorSeason = TotalWon - PythExpSeasonGames
   )
 
-print(df_reg_compact %>% summary())
 # Errors ----
 print(paste("Error Game:", rmse(df_reg_summary$ErrorGame)))
-print(paste("Error 2:", rmse(df_reg_summary$Error2)))
 print(paste("Error 13:", rmse(df_reg_summary$Error13)))
 print(paste("Error Season:", rmse(df_reg_summary$ErrorSeason)))
 
@@ -169,10 +191,6 @@ print(paste("Error Season:", rmse(df_reg_summary$ErrorSeason)))
 print(paste("Cor Game:", cor(
   df_reg_summary$TotalWon,
   df_reg_summary$PythExpGameGames
-)))
-print(paste("Cor 2:", cor(
-  df_reg_summary$TotalWon,
-  df_reg_summary$PythExp2Games
 )))
 print(paste("Cor 13:", cor(
   df_reg_summary$TotalWon,
@@ -185,6 +203,5 @@ print(paste("Cor Season:", cor(
 
 # Standard deviation ----
 print(paste("SD Game:", sd(df_reg_summary$ErrorGame)))
-print(paste("SD 2:", sd(df_reg_summary$Error2)))
 print(paste("SD 13:", sd(df_reg_summary$Error13)))
 print(paste("SD Season", sd(df_reg_summary$ErrorSeason)))
