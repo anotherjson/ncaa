@@ -38,7 +38,9 @@ rmse <- function(error) {
   #   value as numeric
   stopifnot(is.integer(error) | is.numeric(error))
 
-  as.numeric(sqrt(mean(error^2)))
+  temp <- as.numeric(sqrt(mean(error^2)))
+
+  return(temp)
 }
 
 calc_pyth <- function(points_for, points_against, exponent) {
@@ -96,7 +98,7 @@ find_rmse_game <- function(df, df_spread, exponent_calc, numeric_place = 1) {
   #   numeric_place: number to divide exponent_calc, default 1
   # Return:
   #   value as numeric
-  cols_req <- c("TeamScore", "OppScore", "DayNum", "ScoreDiff")
+  cols_req <- c("TeamScore", "OppScore", "ScoreDiff")
   stopifnot(sum(cols_req %in% colnames(df)) == length(cols_req))
 
   exponent_calc <- exponent_calc * numeric_place
@@ -166,6 +168,13 @@ bind_df <- function(df,
                     number_place,
                     season,
                     df_spread) {
+  #
+  # Req:
+  #
+  # Arg:
+  #
+  # Return:
+  #
   df_bind <- df_bind %>%
     rbind(tibble(
       "Exponent" = number_bind * number_place,
@@ -183,6 +192,8 @@ bind_df <- function(df,
         )
       )
     ))
+
+  return(df_bind)
 }
 
 find_rmse_recursive <- function(df,
@@ -193,6 +204,13 @@ find_rmse_recursive <- function(df,
                                 number_place,
                                 season,
                                 df_spread) {
+  #
+  # Req:
+  #
+  # Arg:
+  #
+  # Return:
+  #
   if (number == number_end) {
     df_recursive <- bind_df(
       df,
@@ -202,7 +220,9 @@ find_rmse_recursive <- function(df,
       season,
       df_spread
     )
+
     return(df_recursive)
+
   } else {
     df_recursive <- bind_df(
       df,
@@ -233,6 +253,13 @@ find_rmse <- function(df,
                       number_place,
                       season = TRUE,
                       df_spread = "None") {
+  #
+  # Req:
+  #
+  # Arg:
+  #
+  # Return:
+  #
   df_temp <- tibble()
   number <- exponent_start
 
