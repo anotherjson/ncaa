@@ -160,63 +160,87 @@ find_rmse_season <- function(df, exponent_calc, numeric_place = 1) {
   return(df_rmse$RMSEOutput)
 }
 
+bind_df <- function(df,
+                    df_bind,
+                    number_bind,
+                    number_place,
+                    season,
+                    df_spread) {
+  df_bind <- df_bind %>%
+    rbind(tibble(
+      "Exponent" = number_bind * number_place,
+      "RMSEOutput" = ifelse(season,
+        find_rmse_season(
+          df,
+          number_bind,
+          number_place
+        ),
+        find_rmse_game(
+          df,
+          df_spread,
+          number_bind,
+          number_place
+        )
+      )
+    ))
+}
+
+find_rmse_recursive <- function(df,
+                                df_recursive,
+                                number,
+                                number_end,
+                                number_by,
+                                number_place,
+                                season,
+                                df_spread) {
+  if (number == number_end) {
+    df_recursive <- bind_df(df,
+                            df_recursive,
+                            number,
+                            number_place,
+                            season,
+                            df_spread)
+    return(df_recursive)
+  } else {
+    df_recursive <- bind_df(df,
+                            df_recursive,
+                            number,
+                            number_place,
+                            season,
+                            df_spread)
+    number <- number + number_by
+    find_rmse_recursive(df,
+                        df_recursive,
+                        number,
+                        number_end,
+                        number_by,
+                        number_place,
+                        season,
+                        df_spread)
+  }
+}
+
 find_rmse <- function(df,
                       exponent_start,
                       exponent_end,
                       exponent_by,
-                      numeric_place,
+                      number_place,
                       season = TRUE,
                       df_spread = "None") {
-  number_seq <- seq(exponent_start, exponent_end, by = exponent_by)
-  pb <- progress::progress_bar$new(total = length(number_seq))
   df_temp <- tibble()
   number <- exponent_start
 
-  bind_df <- function(df, df_bind, number_bind, number_place) {
-    df_bind <- df_bind %>%
-      rbind(tibble(
-        "Exponent" = number_bind * numeric_place,
-        "RMSEOutput" = ifelse(season,
-          find_rmse_season(
-            df,
-            number_bind,
-            number_place
-          ),
-          find_rmse_game(
-            df,
-            df_spread,
-            number_bind,
-            number_place
-          )
-        )
-      ))
-  }
-
-  dummy_function <- function(df,
-                             df_dummy,
-                             number,
-                             number_end,
-                             number_by,
-                             number_place) {
-    if (number == number_end) {
-      pb$tick()
-      df_dummy <- bind_df(df, df_dummy, number, number_place)
-      return(df_dummy)
-    } else {
-      pb$tick()
-      df_dummy <- bind_df(df, df_dummy, number, number_place)
-      number <- number + number_by
-      dummy_function(df, df_dummy, number, number_end, number_by, number_place)
-    }
-  }
-  df_return <- dummy_function(
+  df_return <- find_rmse_recursive(
     df,
     df_temp,
     number,
     exponent_end,
     exponent_by,
-    numeric_place
+    number_place,
+    season,
+    df_spread
   )
+
   return(df_return)
 }
 
