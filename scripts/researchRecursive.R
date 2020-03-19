@@ -108,7 +108,7 @@ find_rmse_game <- function(df, df_spread, exponent_calc, numeric_place = 1) {
       calc_pyth_exp(
         TeamScore,
         OppScore,
-        length(DayNum),
+        1,
         exponent_calc
       )
     )) %>%
